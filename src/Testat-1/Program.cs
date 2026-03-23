@@ -22,8 +22,8 @@ class Program
         Lidar lidar = Zumo.Instance.Lidar;
         lidar.SetPower(false);
         Console.WriteLine("Press any key to start Lidar...");
+        Zumo.Instance.RTTTL.PlaySong(RtttlSong.BennyHill);
         Console.ReadKey();
-        Zumo.Instance.Sound.PlaySound(440, 500);
         Console.CancelKeyPress += (s, e) =>
         {
             lidar.SetPower(false);

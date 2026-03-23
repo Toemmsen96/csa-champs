@@ -37,6 +37,7 @@ public class Zumo
         Lidar = new Lidar(Gpio);
         // Drive = new Drive(Com);
         Sound = new Sound(Com);
+        RTTTL = new RTTTL(Sound);
         // ColorSensor = new ColorSensor(Com);
         // RgbLedFront = new RgbLedFront(Com);
     }
@@ -63,4 +64,5 @@ public class Zumo
     // public ColorSensor ColorSensor { get; }
     // public RgbLedFront RgbLedFront{ get; }
     public Lidar Lidar { get; }
+    public RTTTL RTTTL {get;}
 }
