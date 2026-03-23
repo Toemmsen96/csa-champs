@@ -12,41 +12,42 @@ namespace ZumoLib;
 
 public class Cm4Button : IButton
 {
-        public event EventHandler<ButtonStateChangedEventArgs>? ButtonChanged;
-     
-        internal Cm4Button(GpioController gpio, int pin)
+    public event EventHandler<ButtonStateChangedEventArgs>? ButtonChanged;
+
+    internal Cm4Button(GpioController gpio, int pin)
+    {
+        Pin = pin;
+        Gpio = gpio;
+
+        Gpio.OpenPin(pin, PinMode.Input);
+
+        Thread t = new(Run)
         {
-            Pin = pin;
-            Gpio = gpio;
-            Gpio.OpenPin(pin, PinMode.Input);
+            IsBackground = true
+        };
+        t.Start();
+    }
 
-            Thread t = new Thread(Run);
-            t.IsBackground = true;
-            t.Start();
-        }
-
-        internal GpioController Gpio { get; }
-        public int Pin { get; }
+    internal GpioController Gpio { get; }
+    public int Pin { get; }
 
 
-        public bool Pressed
+    public bool Pressed
+    {
+        get { return Gpio.Read(Pin) == PinValue.High; }
+    }
+
+    private void Run()
+    {
+        bool oldState = Pressed;
+        while (true)
         {
-            get { return Gpio.Read(Pin) == PinValue.Low; }
-        }
-
-        private void Run()
-        {
-            bool oldState = Pressed;
-            while(true)
+            if (oldState != Pressed)
             {
-                //Console.WriteLine(Pin + " => " + Gpio.Read(Pin));
-                bool newState = Pressed;
-                if (oldState != newState)
-                {
-                    ButtonChanged?.Invoke(this, new ButtonStateChangedEventArgs(newState));
-                    oldState = newState;
-                }
-                Thread.Sleep(50);
+                oldState = Pressed;
+                ButtonChanged?.Invoke(this, new ButtonStateChangedEventArgs(oldState));
             }
-        }   
+            Thread.Sleep(100);
+        }
+    }
 }
