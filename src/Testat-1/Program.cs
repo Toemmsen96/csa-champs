@@ -35,9 +35,9 @@ class Program
 
         while (true)
         {
-            renderImageInConsole(lidar);
+            Console.Clear();
             Console.WriteLine($"Speed: {lidar.Speed}".PadRight(40));
-            Thread.Sleep(300);
+            Thread.Sleep(1000);
         }
     }
 
