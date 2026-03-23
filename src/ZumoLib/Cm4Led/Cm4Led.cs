@@ -18,22 +18,22 @@ public class Cm4Led : ILed
     {
         Pin = pin;
         Gpio = gpio;
-
-        Gpio.OpenPin(Pin, PinMode.Output);
+        Gpio.OpenPin(pin, PinMode.Output);
     }
 
     internal GpioController Gpio { get; }
-    internal int Pin { get; }
-    private bool enabled;
+    public int Pin { get; }
 
     public bool Enabled
     {
-        get { return enabled; }
+        get { return (bool)Gpio.Read(Pin); }
         set
         {
-            Gpio.Write(Pin, value ? PinValue.High : PinValue.Low);
-            enabled = value;
-            LedStateChanged?.Invoke(this, new LedStateChangedEventArgs(enabled));
+            if (value != Enabled)
+            {
+                Gpio.Write(Pin, value);
+                LedStateChanged?.Invoke(this, new LedStateChangedEventArgs(value));
+            }
         }
     }
 
