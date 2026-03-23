@@ -78,14 +78,14 @@ public class Lidar
         if (enable)
         {
             Gpio.Write(7, true);
-            // Thread.Sleep(100);
-            // pwm.Frequency = 1000;
-            // pwm.DutyCycle = 0.5;
-            // pwm.Start();
-            // Thread.Sleep(100);
-            // pwm.DutyCycle = 0.15;
-            // Thread.Sleep(100);
-            // pwm.Stop();
+            Thread.Sleep(100);
+            pwm.Frequency = 1000;
+            pwm.DutyCycle = 0.5;
+            pwm.Start();
+            Thread.Sleep(100);
+            pwm.DutyCycle = 0.15;
+            Thread.Sleep(100);
+            pwm.Stop();
         }
         else
         {

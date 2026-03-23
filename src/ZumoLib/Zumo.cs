@@ -54,8 +54,8 @@ public class Zumo
     public RedLedRear RedLedRearRight { get; }
 
     public Display Display { get; }
-    public ILed Cm4Led { get; }         
-    public IButton Cm4Button { get;  }
+    public ILed Cm4Led { get; }
+    public IButton Cm4Button { get; }
     public IButton ZumoButton { get; }
 
     public Sound Sound { get; }
