@@ -34,7 +34,7 @@ public class Zumo
         RedLedRearLeft = new RedLedRear(Com, LedRear.Left);
         RedLedRearRight = new RedLedRear(Com, LedRear.Right);
 
-        // Lidar = new Lidar(Gpio);
+        Lidar = new Lidar(Gpio);
         // Drive = new Drive(Com);
         // Sound = new Sound(Com);
         // ColorSensor = new ColorSensor(Com);
@@ -54,13 +54,13 @@ public class Zumo
     public RedLedRear RedLedRearRight { get; }
 
     public Display Display { get; }
-    public ILed Cm4Led { get; }         
-    public IButton Cm4Button { get;  }
+    public ILed Cm4Led { get; }
+    public IButton Cm4Button { get; }
     public IButton ZumoButton { get; }
 
     // public Sound Sound { get; }
     // public Drive Drive { get; }
     // public ColorSensor ColorSensor { get; }
     // public RgbLedFront RgbLedFront{ get; }
-    // public Lidar Lidar { get; }
+    public Lidar Lidar { get; }
 }
