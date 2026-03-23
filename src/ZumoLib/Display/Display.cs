@@ -167,6 +167,45 @@ public class Display : IDisposable
         }
     }
 
+    public void DrawImage(ParsedImage image, int x = 0, int y = 0)
+    {
+        int startX = Math.Max(0, x);
+        int startY = Math.Max(0, y);
+        int endX = Math.Min(Width, x + image.Width);
+        int endY = Math.Min(Height, y + image.Height);
+
+        if (startX >= endX || startY >= endY)
+        {
+            return;
+        }
+
+        lock (syncRoot)
+        {
+            for (int destY = startY; destY < endY; destY++)
+            {
+                int srcY = destY - y;
+                int srcRow = srcY * image.Width;
+                int dstRow = destY * Width;
+
+                for (int destX = startX; destX < endX; destX++)
+                {
+                    int srcX = destX - x;
+                    ushort color = image.Pixels[srcRow + srcX];
+
+                    int index = (dstRow + destX) * 2;
+                    framebuffer[index] = (byte)(color & 0xFF);
+                    framebuffer[index + 1] = (byte)(color >> 8);
+                }
+            }
+        }
+    }
+
+    public void DrawPng(string filePath, int x = 0, int y = 0)
+    {
+        ParsedImage image = ImageParser.ParsePng(filePath);
+        DrawImage(image, x, y);
+    }
+
     public void Flush()
     {
         lock (syncRoot)

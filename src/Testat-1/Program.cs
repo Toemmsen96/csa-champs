@@ -4,11 +4,20 @@ namespace ZumoApp;
 
 class Program
 {
+    private const string DemoImageFileName = "CoderAlien.png";
     private const float MaxLidarDistanceMm = 4500f;
 
     static void Main(string[] args)
     {
         Console.WriteLine("Zumo starting...");
+
+        var display = Zumo.Instance.Display;
+        display.PowerOn();
+
+        var black = Display.Rgb565(0, 0, 0);
+        var blue = Display.Rgb565(0, 0, 255);
+
+        DrawStartupImage(display, DemoImageFileName, black);
 
         // Test Button
         Zumo.Instance.Cm4Button.ButtonChanged += ButtonChanged;
@@ -29,18 +38,13 @@ class Program
         Console.CancelKeyPress += (s, e) =>
         {
             lidar.SetPower(false);
+            RestoreDisplay(display, black);
             Console.WriteLine("Lidar stopped.");
         };
 
         Console.Clear();
         Console.WriteLine("Lidar started.");
         lidar.SetPower(true);
-
-        var display = Zumo.Instance.Display;
-        display.PowerOn();
-
-        var black = Display.Rgb565(0, 0, 0);
-        var blue = Display.Rgb565(0, 0, 255);
 
         while (true)
         {
@@ -49,6 +53,76 @@ class Program
             Console.WriteLine($"Speed: {lidar.Speed}".PadRight(40));
             Thread.Sleep(80);
         }
+    }
+
+    private static void DrawStartupImage(Display display, string imageFileName, ushort backgroundColor)
+    {
+        string? imagePath = FindFileInCurrentOrParentDirectories(imageFileName, maxDepth: 6);
+        if (imagePath is null)
+        {
+            return;
+        }
+
+        ParsedImage source = ImageParser.ParsePng(imagePath);
+        ParsedImage scaled = ResizeNearest(source, display.Width, display.Height);
+
+        int x = (display.Width - scaled.Width) / 2;
+        int y = (display.Height - scaled.Height) / 2;
+
+        display.Clear(backgroundColor);
+        display.DrawImage(scaled, x, y);
+        display.Flush();
+    }
+
+    private static string? FindFileInCurrentOrParentDirectories(string fileName, int maxDepth)
+    {
+        string current = Directory.GetCurrentDirectory();
+        for (int depth = 0; depth <= maxDepth; depth++)
+        {
+            string candidate = Path.Combine(current, fileName);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            DirectoryInfo? parent = Directory.GetParent(current);
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent.FullName;
+        }
+
+        return null;
+    }
+
+    private static ParsedImage ResizeNearest(ParsedImage source, int maxWidth, int maxHeight)
+    {
+        if (source.Width <= maxWidth && source.Height <= maxHeight)
+        {
+            return source;
+        }
+
+        float scale = Math.Min((float)maxWidth / source.Width, (float)maxHeight / source.Height);
+        int targetWidth = Math.Max(1, (int)(source.Width * scale));
+        int targetHeight = Math.Max(1, (int)(source.Height * scale));
+
+        ushort[] targetPixels = new ushort[targetWidth * targetHeight];
+        for (int y = 0; y < targetHeight; y++)
+        {
+            int srcY = Math.Min(source.Height - 1, (int)(y / scale));
+            int srcRow = srcY * source.Width;
+            int dstRow = y * targetWidth;
+
+            for (int x = 0; x < targetWidth; x++)
+            {
+                int srcX = Math.Min(source.Width - 1, (int)(x / scale));
+                targetPixels[dstRow + x] = source.Pixels[srcRow + srcX];
+            }
+        }
+
+        return new ParsedImage(targetWidth, targetHeight, targetPixels);
     }
 
     private static void RenderLidarOnDisplay(Lidar lidar, Display display, ushort backgroundColor, ushort centerColor)
@@ -88,6 +162,12 @@ class Program
             }
         }
 
+        display.Flush();
+    }
+
+    private static void RestoreDisplay(Display display, ushort backgroundColor)
+    {
+        display.Clear(backgroundColor);
         display.Flush();
     }
 

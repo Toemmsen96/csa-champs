@@ -12,6 +12,12 @@
     <ProjectReference Include="../ZumoLib/ZumoLib.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="../../CoderAlien.png" Link="CoderAlien.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="../../scripts/deploy.sh $(TargetDir) $(ProjectName)" />
   </Target>
