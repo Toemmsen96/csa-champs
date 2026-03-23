@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="rsync -avz --delete &quot;$(TargetDir)&quot; &quot;csa:netcore/$(ProjectName)&quot;" />
+    <Exec Command="../../scripts/deploy.sh $(TargetDir) $(ProjectName)" />
   </Target>
 
 </Project>
