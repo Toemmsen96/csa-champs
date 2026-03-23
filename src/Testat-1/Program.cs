@@ -4,6 +4,8 @@ namespace ZumoApp;
 
 class Program
 {
+    private const float MaxLidarDistanceMm = 4500f;
+
     static void Main(string[] args)
     {
         Console.WriteLine("Zumo starting...");
@@ -22,7 +24,7 @@ class Program
         Lidar lidar = Zumo.Instance.Lidar;
         lidar.SetPower(false);
         Console.WriteLine("Press any key to start Lidar...");
-        Zumo.Instance.RTTTL.PlaySong(RtttlSong.BennyHill);
+        //Zumo.Instance.RTTTL.PlaySong(RtttlSong.BennyHill);
         Console.ReadKey();
         Console.CancelKeyPress += (s, e) =>
         {
@@ -34,86 +36,59 @@ class Program
         Console.WriteLine("Lidar started.");
         lidar.SetPower(true);
 
+        var display = Zumo.Instance.Display;
+        display.PowerOn();
+
+        var black = Display.Rgb565(0, 0, 0);
+        var blue = Display.Rgb565(0, 0, 255);
+
         while (true)
         {
-            Console.Clear();
+            RenderLidarOnDisplay(lidar, display, black, blue);
+            Console.SetCursorPosition(0, 1);
             Console.WriteLine($"Speed: {lidar.Speed}".PadRight(40));
-            Thread.Sleep(1000);
+            Thread.Sleep(80);
         }
     }
 
-    private static byte[]? _bmp = null;
-
-    private static void renderImageInConsole(Lidar lidar)
+    private static void RenderLidarOnDisplay(Lidar lidar, Display display, ushort backgroundColor, ushort centerColor)
     {
-        int size = 800;
-        float maxDistMm = 4500f;
+        int width = display.Width;
+        int height = display.Height;
+        int maxRadius = Math.Min(width, height) / 4;
+        int centerX = maxRadius + 8;
+        int centerY = height - maxRadius - 8;
 
-        if (_bmp == null)
-        {
-            _bmp = new byte[54 + (size * size * 3)];
-            _bmp[0] = (byte)'B'; _bmp[1] = (byte)'M'; // Signature
-            BitConverter.GetBytes(_bmp.Length).CopyTo(_bmp, 2); // File size
-            BitConverter.GetBytes(54).CopyTo(_bmp, 10); // Pixel data offset
-            BitConverter.GetBytes(40).CopyTo(_bmp, 14); // DIB header size
-            BitConverter.GetBytes(size).CopyTo(_bmp, 18); // Width
-            BitConverter.GetBytes(size).CopyTo(_bmp, 22); // Height
-            BitConverter.GetBytes((short)1).CopyTo(_bmp, 26); // Color planes
-            BitConverter.GetBytes((short)24).CopyTo(_bmp, 28); // Bits per pixel
-            BitConverter.GetBytes(size * size * 3).CopyTo(_bmp, 34); // Image data size
-        }
-        else
-        {
-            // Dim existing pixels by 25 (255 / 10 is approx 25), fading them out over 10 iterations!
-            for (int i = 54; i < _bmp.Length; i++)
-            {
-                if (_bmp[i] >= 25) _bmp[i] -= 25;
-                else _bmp[i] = 0;
-            }
-        }
-
-        byte[] bmp = _bmp;
-
-        void setPixel(int px, int py, byte pr, byte pg, byte pb)
-        {
-            if (px >= 0 && px < size && py >= 0 && py < size)
-            {
-                int idx = 54 + (py * size + px) * 3;
-                bmp[idx] = pb;
-                bmp[idx + 1] = pg;
-                bmp[idx + 2] = pr;
-            }
-        }
+        display.Clear(backgroundColor);
 
         for (int dy = -2; dy <= 2; dy++)
             for (int dx = -2; dx <= 2; dx++)
-                setPixel(size / 2 + dx, size / 2 + dy, 0, 0, 255);
+                display.SetPixel(centerX + dx, centerY + dy, centerColor);
 
         for (int i = 0; i < 360; i++)
         {
             var p = lidar[i];
-            if (p.Distance > 0 && p.Distance < maxDistMm)
+            if (p.Distance > 0 && p.Distance < MaxLidarDistanceMm)
             {
-                double angleRad = i * Math.PI / 180.0;
-                float distFraction = p.Distance / maxDistMm;
+                double angleRad = (-i + 180.0) * Math.PI / 180.0;
+                float distFraction = p.Distance / MaxLidarDistanceMm;
 
-                int px = (size / 2) + (int)(Math.Sin(angleRad) * distFraction * (size / 2));
-                int py = (size / 2) + (int)(Math.Cos(angleRad) * distFraction * (size / 2));
+                int px = centerX + (int)(Math.Sin(angleRad) * distFraction * maxRadius);
+                int py = centerY + (int)(Math.Cos(angleRad) * distFraction * maxRadius);
 
                 byte r = (byte)Math.Min(255, 511 * distFraction);
                 byte g = (byte)Math.Min(255, 511 - 511 * distFraction);
-                setPixel(px, py, r, g, 0);
-                setPixel(px + 1, py, r, g, 0);
-                setPixel(px - 1, py, r, g, 0);
-                setPixel(px, py + 1, r, g, 0);
-                setPixel(px, py - 1, r, g, 0);
+                ushort color = Display.Rgb565(r, g, 0);
+
+                display.SetPixel(px, py, color);
+                display.SetPixel(px + 1, py, color);
+                display.SetPixel(px - 1, py, color);
+                display.SetPixel(px, py + 1, color);
+                display.SetPixel(px, py - 1, color);
             }
         }
 
-        Console.SetCursorPosition(0, 0);
-
-        string base64 = Convert.ToBase64String(bmp);
-        Console.WriteLine($"\x1b]1337;File=inline=1;width={size * 2}px;height={size * 2}px;preserveAspectRatio=1:{base64}\x07");
+        display.Flush();
     }
 
     public static void ButtonChanged(object? sender, ButtonStateChangedEventArgs args)
