@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Testat-1/Testat-1.csproj" />
+    <Project Path="src/ZumoLib/ZumoLib.csproj" />
   </Folder>
 </Solution>
