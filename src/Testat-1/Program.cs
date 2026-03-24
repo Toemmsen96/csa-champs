@@ -4,6 +4,8 @@ namespace ZumoApp;
 
 class Program
 {
+    private static bool running = true;
+
     private const string DemoImageFileName = "CoderAlien.png";
     private const float MaxLidarDistanceMm = 4500f;
 
@@ -19,40 +21,64 @@ class Program
 
         DrawStartupImage(display, DemoImageFileName, black);
 
-        // Test Button
         Zumo.Instance.Cm4Button.ButtonChanged += ButtonChanged;
 
-        // Test Led
-        for (int i = 0; i < 6; i++)
-        {
-            Zumo.Instance.Cm4Led.Toggle();
-            Thread.Sleep(100);
-        }
+        Zumo.Instance.Lidar.SetPower(true);
+        Thread.Sleep(500);
 
-        // Test Lidar
-        Lidar lidar = Zumo.Instance.Lidar;
-        lidar.SetPower(false);
-        Console.WriteLine("Press any key to start Lidar...");
-        //Zumo.Instance.RTTTL.PlaySong(RtttlSong.BennyHill);
-        Console.ReadKey();
-        Console.CancelKeyPress += (s, e) =>
-        {
-            lidar.SetPower(false);
-            RestoreDisplay(display, black);
-            Console.WriteLine("Lidar stopped.");
-        };
+        const int TARGET_DISTANCE = 400;
+        const short BASE_SPEED = 200;
+        const int MAX_ERROR = 150;
+        const int OBSTACLE_THRESHOLD = 400;
 
-        Console.Clear();
-        Console.WriteLine("Lidar started.");
-        lidar.SetPower(true);
-
-        while (true)
+        do
         {
+            int left45 = Zumo.Instance.Lidar[315].Distance;
+            int left90 = Zumo.Instance.Lidar[270].Distance;
+            int left135 = Zumo.Instance.Lidar[225].Distance;
+
+            int avgDistance = (left135 + left90 + left45) / 3;
+            int distError = avgDistance - TARGET_DISTANCE;
+            distError = Math.Max(-MAX_ERROR, Math.Min(MAX_ERROR, distError));
+
+            int angleError = left45 - left135;
+            angleError = Math.Max(-100, Math.Min(100, angleError));
+
+            int frontCenter = Zumo.Instance.Lidar[0].Distance;
+            int frontLeft = Zumo.Instance.Lidar[45].Distance;
+            int frontRight = Zumo.Instance.Lidar[315].Distance;
+
+            int minFrontDist = Math.Min(frontCenter, Math.Min(frontLeft, frontRight));
+
+            short speedMultiplier = 100;
+            short obstacleAvoidance = 0;
+
+            if (minFrontDist < OBSTACLE_THRESHOLD && minFrontDist > 0)
+            {
+                speedMultiplier = (short)Math.Max(30, minFrontDist * 100 / OBSTACLE_THRESHOLD);
+
+                if (frontCenter < frontRight)
+                {
+                    obstacleAvoidance = 150;
+                }
+                else if (frontCenter < frontLeft)
+                {
+                    obstacleAvoidance = 100;
+                }
+            }
+
+            short distCorrection = (short)(distError / 150.0f * 80);
+            short angleCorrection = (short)(angleError / 100.0f * 80);
+            short totalCorrection = (short)(distCorrection + angleCorrection - obstacleAvoidance);
+
+            short leftSpeed = (short)((BASE_SPEED * speedMultiplier / 100) - totalCorrection);
+            short rightSpeed = (short)((BASE_SPEED * speedMultiplier / 100) + totalCorrection);
+
+            Zumo.Instance.Drive.ConstantSpeed(leftSpeed, rightSpeed);
+
             RenderLidarOnDisplay(lidar, display, black, blue);
-            Console.SetCursorPosition(0, 1);
-            Console.WriteLine($"Speed: {lidar.Speed}".PadRight(40));
-            Thread.Sleep(80);
-        }
+            Thread.Sleep(50);
+        } while (running);
     }
 
     private static void DrawStartupImage(Display display, string imageFileName, ushort backgroundColor)
@@ -173,6 +199,12 @@ class Program
 
     public static void ButtonChanged(object? sender, ButtonStateChangedEventArgs args)
     {
-        Console.WriteLine("Button State: " + args.Pressed);
+        if (args.Pressed)
+        {
+            running = false;
+            Zumo.Instance.Drive.Stop();
+            Zumo.Instance.Lidar.SetPower(false);
+            RestoreDisplay(Zumo.Instance.Display, Display.Rgb565(0, 0, 0));
+        }
     }
 }
