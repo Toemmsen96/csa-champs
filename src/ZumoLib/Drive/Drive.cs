@@ -51,10 +51,10 @@ public class Drive : ComDevice
     public (short leftSpeed, short rightSpeed) GetCurrentSpeed()
     {
         string response = GetRequest(5, DRIVE_DISPATCHER, "1");
-        if (response.Length >= 8)
+        if (response.Length >= 13)
         {
-            short left = short.Parse(response.Substring(0, 4), System.Globalization.NumberStyles.HexNumber);
-            short right = short.Parse(response.Substring(4, 4), System.Globalization.NumberStyles.HexNumber);
+            short left = short.Parse(response.Substring(5, 4), System.Globalization.NumberStyles.HexNumber);
+            short right = short.Parse(response.Substring(9, 4), System.Globalization.NumberStyles.HexNumber);
             return (left, right);
         }
         return (0, 0);
@@ -63,9 +63,9 @@ public class Drive : ComDevice
     public short GetRemainingDistance()
     {
         string response = GetRequest(5, DRIVE_DISPATCHER, "2");
-        if (response.Length >= 4)
+        if (response.Length >= 9)
         {
-            return short.Parse(response.Substring(0, 4), System.Globalization.NumberStyles.HexNumber);
+            return short.Parse(response.Substring(5, 4), System.Globalization.NumberStyles.HexNumber);
         }
         return 0;
     }
@@ -73,10 +73,10 @@ public class Drive : ComDevice
     public (short leftSpeed, short rightSpeed) GetEncoderSpeed()
     {
         string response = GetRequest(5, ENCODER_DISPATCHER, "0");
-        if (response.Length >= 9)
+        if (response.Length >= 13)
         {
-            short left = short.Parse(response.Substring(1, 4), System.Globalization.NumberStyles.HexNumber);
-            short right = short.Parse(response.Substring(5, 4), System.Globalization.NumberStyles.HexNumber);
+            short left = short.Parse(response.Substring(5, 4), System.Globalization.NumberStyles.HexNumber);
+            short right = short.Parse(response.Substring(9, 4), System.Globalization.NumberStyles.HexNumber);
             return (left, right);
         }
         return (0, 0);
@@ -85,10 +85,11 @@ public class Drive : ComDevice
     public (short leftDistance, short rightDistance) GetEncoderDistance()
     {
         string response = GetRequest(5, ENCODER_DISPATCHER, "1");
-        if (response.Length >= 9)
+        Console.WriteLine($"Encoder Distance Response: {response}");
+        if (response.Length >= 13)
         {
-            short left = short.Parse(response.Substring(1, 4), System.Globalization.NumberStyles.HexNumber);
-            short right = short.Parse(response.Substring(5, 4), System.Globalization.NumberStyles.HexNumber);
+            short left = short.Parse(response.Substring(5, 4), System.Globalization.NumberStyles.HexNumber);
+            short right = short.Parse(response.Substring(9, 4), System.Globalization.NumberStyles.HexNumber);
             return (left, right);
         }
         return (0, 0);
