@@ -1,18 +1,69 @@
-﻿using ZumoLib;
+﻿using Testat_1.Util;
+using ZumoLib;
 
-namespace ZumoApp;
+namespace Testat_1;
 
 class Program
 {
+    const int ANGLE_THRESHOLD = 50;
+    const int WALL_LENGTH_THRESHOLD = 10;
 
     static void Main(string[] args)
     {
-        for (int i = 0; i < 4; i++)
+#if DEBUG
+        // Debugger.WaitForDebugger();
+#endif
+
+        Zumo.Instance.Lidar.SetPower(true);
+
+        while (true)
         {
-            Zumo.Instance.Drive.Forward(250, 50, 100);
-            Thread.Sleep(5000);
-            Zumo.Instance.Drive.Rotate(-90, 50, 1000);
-            Thread.Sleep(2000);
+            LeftAlign();
         }
+    }
+
+    private static void LeftAlign(CancellationToken token = new CancellationToken())
+    {
+        int correctionlessCycles = 0;
+        while (!token.IsCancellationRequested && correctionlessCycles < 3)
+        {
+            Thread.Sleep(1000);
+            var walls = LidarProcessing.GetWalls();
+
+            var leftWall = walls
+                .Where(w => GetAngularSpan(w) >= WALL_LENGTH_THRESHOLD)
+                .FirstOrDefault(w =>
+                {
+                    double normalizedAngle = NormalizeAngle(w.Angle);
+                    return Math.Abs(275 - normalizedAngle) <= ANGLE_THRESHOLD;
+                });
+
+            if (leftWall == null)
+            {
+                continue;
+            }
+
+            var correctionAngle = leftWall.Angle + 90;
+            if (Math.Abs(correctionAngle) < 2)
+            {
+                correctionlessCycles++;
+                continue;
+            }
+
+            Console.WriteLine("Correction Angle: " + correctionAngle);
+            Zumo.Instance.Drive.Rotate((short)correctionAngle, 50, 100);
+        }
+    }
+
+    private static double NormalizeAngle(double angle)
+    {
+        return (angle + 360.0) % 360.0;
+    }
+
+    private static double GetAngularSpan(Wall wall)
+    {
+        double start = NormalizeAngle(wall.Start.Angle);
+        double end = NormalizeAngle(wall.End.Angle);
+        return NormalizeAngle(end - start);
     }
 }
