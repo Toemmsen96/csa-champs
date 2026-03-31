@@ -38,7 +38,7 @@ public class Zumo
         Drive = new Drive(Com);
         Sound = new Sound(Com);
         RTTTL = new RTTTL(Sound);
-        // ColorSensor = new ColorSensor(Com);
+        ColorSensor = new ColorSensor(Com);
         // RgbLedFront = new RgbLedFront(Com);
     }
 
@@ -61,7 +61,7 @@ public class Zumo
 
     public Sound Sound { get; }
     public Drive Drive { get; }
-    // public ColorSensor ColorSensor { get; }
+    public ColorSensor ColorSensor { get; }
     // public RgbLedFront RgbLedFront{ get; }
     public Lidar Lidar { get; }
     public RTTTL RTTTL { get; }

@@ -22,11 +22,14 @@ class Program
         };
 
         Zumo.Instance.Lidar.SetPower(true);
+        CalibrateColorSensor();
         try
         {
             while (!cts.Token.IsCancellationRequested)
             {
                 LeftAlign(cts.Token);
+                Console.WriteLine("Color Sensor Reading: " + Zumo.Instance.ColorSensor.ReadColorRGB());
+                Thread.Sleep(1000);
             }
         }
         finally
@@ -34,6 +37,21 @@ class Program
             Zumo.Instance.Lidar.SetPower(false);
             Zumo.Instance.Drive.Stop();
         }
+    }
+
+    private static void CalibrateColorSensor()
+    {
+        Console.WriteLine("Calibrating Color Sensor...");
+        Console.WriteLine("Place the sensor on a white surface and press Enter.");
+        Console.ReadLine();
+        string whiteCalibrated = Zumo.Instance.ColorSensor.Calibrate(ColorSensor.CalibrationColor.White);
+        Console.WriteLine("White Calibration: " + whiteCalibrated );
+
+        Console.WriteLine("Place the sensor on a black surface and press Enter.");
+        Console.ReadLine();
+        string blackCalibrated = Zumo.Instance.ColorSensor.Calibrate(ColorSensor.CalibrationColor.Black);
+        Console.WriteLine("Black Calibration: " + blackCalibrated );
+        Console.WriteLine("Calibration complete. White: " + whiteCalibrated + ", Black: " + blackCalibrated);
     }
 
     private static void LeftAlign(CancellationToken token)
