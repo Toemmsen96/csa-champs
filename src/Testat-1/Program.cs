@@ -14,15 +14,29 @@ class Program
         // Debugger.WaitForDebugger();
 #endif
 
-        Zumo.Instance.Lidar.SetPower(true);
-
-        while (true)
+        var cts = new CancellationTokenSource();
+        Console.CancelKeyPress += (sender, e) =>
         {
-            LeftAlign();
+            e.Cancel = true; // Prevent immediate termination
+            cts.Cancel();
+        };
+
+        Zumo.Instance.Lidar.SetPower(true);
+        try
+        {
+            while (!cts.Token.IsCancellationRequested)
+            {
+                LeftAlign(cts.Token);
+            }
+        }
+        finally
+        {
+            Zumo.Instance.Lidar.SetPower(false);
+            Zumo.Instance.Drive.Stop();
         }
     }
 
-    private static void LeftAlign(CancellationToken token = new CancellationToken())
+    private static void LeftAlign(CancellationToken token)
     {
         int correctionlessCycles = 0;
         while (!token.IsCancellationRequested && correctionlessCycles < 3)
