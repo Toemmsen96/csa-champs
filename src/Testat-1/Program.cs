@@ -20,6 +20,7 @@ class Program
             e.Cancel = true; // Prevent immediate termination
             cts.Cancel();
         };
+        //TestLEDs();
 
         Zumo.Instance.Lidar.SetPower(true);
         CalibrateColorSensor();
@@ -28,14 +29,15 @@ class Program
             while (!cts.Token.IsCancellationRequested)
             {
                 LeftAlign(cts.Token);
-                Console.WriteLine("Color Sensor Reading: " + Zumo.Instance.ColorSensor.ReadColorRGB());
-                Thread.Sleep(1000);
+                Console.WriteLine("Color Sensor Reading: " + ColorSensor.RGBToReadable(Zumo.Instance.ColorSensor.ReadColorRGB()));
+                //Thread.Sleep(1000);
             }
         }
         finally
         {
             Zumo.Instance.Lidar.SetPower(false);
             Zumo.Instance.Drive.Stop();
+            //Zumo.Instance.RgbLedFront.SetValue(0xFF,0, 0, 0);
         }
     }
 
@@ -52,6 +54,21 @@ class Program
         string blackCalibrated = Zumo.Instance.ColorSensor.Calibrate(ColorSensor.CalibrationColor.Black);
         Console.WriteLine("Black Calibration: " + blackCalibrated );
         Console.WriteLine("Calibration complete. White: " + whiteCalibrated + ", Black: " + blackCalibrated);
+    }
+
+    private static void TestLEDs(){
+        foreach (var led in LedFront.GetValues<LedFront>())
+        {
+            Console.WriteLine($"Testing LED: {led.GetType().Name} {led}");
+            Zumo.Instance.RgbLedFront.SetValue(led, 255, 0, 0);
+            Console.ReadLine();
+            Zumo.Instance.RgbLedFront.SetValue(led, 0, 255, 0);
+            Console.ReadLine();
+            Zumo.Instance.RgbLedFront.SetValue(led, 0, 0, 255);
+            Console.ReadLine();
+            Console.WriteLine($"LED {led.GetType().Name} {led} test complete.");
+            Zumo.Instance.RgbLedFront.SetValue(led, 0, 0, 0);
+        }
     }
 
     private static void LeftAlign(CancellationToken token)
