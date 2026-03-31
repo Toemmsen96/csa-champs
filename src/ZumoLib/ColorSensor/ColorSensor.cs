@@ -48,7 +48,7 @@ public class ColorSensor : ComDevice
     }
     public string ReadColorRGB()
     {
-        string response = GetRequest(5, 0x31, "1");
+        string response = GetRequest(5, 0x31, "0");
         if (response.Length == 8)
         {
             string hueHex = "0x" + response.Substring(4, 4);
