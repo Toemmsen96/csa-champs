@@ -23,6 +23,8 @@ class Program
         //TestLEDs();
 
         Zumo.Instance.Lidar.SetPower(true);
+        // RTTTL rtttl = new RTTTL(Zumo.Instance.Sound);
+        // new Thread(() => rtttl.PlaySong(RtttlSong.FinalCountdown)) { IsBackground = true }.Start();
         CalibrateColorSensor();
         try
         {

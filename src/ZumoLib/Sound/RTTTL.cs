@@ -188,27 +188,33 @@ namespace ZumoLib
                 if (note.Frequency > 0)
                 {
                     // Keep a short gap between notes for more natural RTTTL timing.
-                    var toneDurationMs = Math.Max(1, (int)(durationMs * 0.9));
+                    var toneDurationMs = Math.Max(1, (int)(durationMs * 0.95));
                     var frequency = (UInt16)Math.Clamp(note.Frequency, 20, UInt16.MaxValue);
                     var toneDuration = (UInt16)Math.Clamp(toneDurationMs, 0, UInt16.MaxValue);
 
                     // Very short notes can fail sporadically on the bus; retry once before moving on.
                     if (!_sound.PlaySound(frequency, toneDuration))
                     {
-                        System.Threading.Thread.Sleep(2);
+                        System.Threading.Thread.Sleep(1);
                         _sound.PlaySound(frequency, toneDuration);
                     }
-                }
 
-                var remainingMs = durationMs - (int)noteTimer.ElapsedMilliseconds;
-                if (remainingMs > 0)
-                {
-                    System.Threading.Thread.Sleep(remainingMs);
+                    // Wait for the remaining duration (short gap between notes)
+                    var remainingMs = durationMs - (int)noteTimer.ElapsedMilliseconds;
+                    if (remainingMs > 0)
+                    {
+                        System.Threading.Thread.Sleep(remainingMs);
+                    }
                 }
-                else if (note.Frequency > 0)
+                else
                 {
-                    // If command overhead exceeds note duration, still yield briefly to avoid back-to-back flooding.
-                    System.Threading.Thread.Sleep(1);
+                    // For pauses, sleep for a shorter duration (e.g., 50% of note duration)
+                    var pauseDuration = (int)(durationMs * 0.5);
+                    var pauseMs = pauseDuration - (int)noteTimer.ElapsedMilliseconds;
+                    if (pauseMs > 0)
+                    {
+                        System.Threading.Thread.Sleep(pauseMs);
+                    }
                 }
             }
         }

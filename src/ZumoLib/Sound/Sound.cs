@@ -18,7 +18,7 @@ public class Sound : ComDevice
 
     public bool PlaySound(UInt16 frequencyHz, UInt16 durationMs)
     {
-        frequencyHz = (UInt16)Math.Clamp(frequencyHz, (UInt16)20, (UInt16)65535);
+        frequencyHz = (UInt16)Math.Clamp(frequencyHz, (UInt16)10, (UInt16)15500); // 15500 Hz is the highest frequency the Zumo can produce
         durationMs = (UInt16)Math.Clamp(durationMs, (UInt16)0, (UInt16)65535);
         String message = $"0{frequencyHz:X4}{durationMs:X4}";
         return SetRequest(5, 0x50, message) == "5<50Sound";
