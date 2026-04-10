@@ -1,23 +1,10 @@
-﻿using System.Dynamic;
-using System.Runtime.CompilerServices;
-using Util;
+﻿using Util;
 using ZumoLib;
 
 namespace Testat_1;
 
 class Program
 {
-    /* Board
-    #|# # # # #|#
-    #|#|# # #|#|#
-    #|#|# #_#|#|#
-    #|#|#|S|#|#|#
-    #|#|#_#_#|#|#
-    #|#|# # #|#|#
-    #|# # # # #|#
-     */
-
-
     private const int CellSizeMm = 200;
 
     // Drive profile

@@ -1,5 +1,15 @@
 namespace Util;
 
+/* Board
+    #|# # # # #|#
+    #|#|# # #|#|#
+    #|#|# #_#|#|#
+    #|#|#|S|#|#|#
+    #|#|#_#_#|#|#
+    #|#|# # #|#|#
+    #|# # # # #|#
+*/
+
 public class Map
 {
     private static int currentX = 3;
