@@ -5,110 +5,210 @@
 //   /____/\__,_/_/ /_/ /_/\____/  /_/ |_|\____/_.___/\____/\__/
 //   (c) Hochschule Luzern T&A ========== www.hslu.ch ============
 //
-using System;
-using System.Reflection.Metadata;
-using System.Reflection.Metadata.Ecma335;
+using System.Globalization;
 
 namespace ZumoLib;
 
 public class Drive : ComDevice
 {
-    private const byte DRIVE_DISPATCHER = 0x24;
-    private const byte ENCODER_DISPATCHER = 0x22;
-
-    public Drive(ICom com) : base(com, 0xD1) { }
-
-    public bool Forward(short distance, short speed = 10, short acceleration = 1)
+    private readonly Dictionary<string, short> turnCalibrations = new()
     {
-        string response = SetRequest(5, DRIVE_DISPATCHER, $"2{distance:X4}{speed:X4}{acceleration:X4}");
-        return !string.IsNullOrEmpty(response);
-    }
+        { "eee-05500",  129 }, // ARO: CSA-3
+        { "eee-05457",  125 }, // ARO: CSA-5
+    };
 
-    public bool Rotate(short angle, short speed = 1000, short acceleration = 1000)
+    private readonly Dictionary<string, sbyte> driveCalibrationsForward = new()
     {
-        string response = SetRequest(5, DRIVE_DISPATCHER, $"A{angle:X4}{speed:X4}{acceleration:X4}");
-        return !string.IsNullOrEmpty(response);
-    }
+        { "eee-05500",  0 }, // ARO: CSA-3
+        { "eee-05457",  40 }, // ARO: CSA-5
+    };
 
-    public bool ConstantSpeed(short leftSpeed, short rightSpeed)
+    private readonly Dictionary<string, sbyte> driveCalibrationsBackward = new()
     {
-        string response = SetRequest(5, DRIVE_DISPATCHER, $"1{leftSpeed:X4}{rightSpeed:X4}");
-        return !string.IsNullOrEmpty(response);
-    }
+        { "eee-05500",  0 }, // ARO: CSA-3
+        { "eee-05457",  0 }, // ARO: CSA-5
+    };
 
-    public bool CurveWithRadius(short angle, short radius, short speed = 1000, short acceleration = 1000)
-    {
-        string response = SetRequest(5, DRIVE_DISPATCHER, $"9{angle:X4}{radius:X4}{speed:X4}{acceleration:X4}");
-        return !string.IsNullOrEmpty(response);
-    }
+    public event EventHandler Finished;
 
-    public bool SetRotationCalibrationFactor(short calibrationFactor)
+    private sbyte getDriveCorrection(bool forward)
     {
-        string response = SetRequest(5, DRIVE_DISPATCHER, $"B{calibrationFactor:X4}");
-        return !string.IsNullOrEmpty(response);
-    }
-
-    public (short leftSpeed, short rightSpeed) GetCurrentSpeed()
-    {
-        string response = GetRequest(5, DRIVE_DISPATCHER, "1");
-        if (response.Length >= 13)
+        string deviceId = System.Net.Dns.GetHostName();
+        if (forward)
         {
-            short left = short.Parse(response.Substring(5, 4), System.Globalization.NumberStyles.HexNumber);
-            short right = short.Parse(response.Substring(9, 4), System.Globalization.NumberStyles.HexNumber);
-            return (left, right);
+            if (driveCalibrationsForward.TryGetValue(deviceId, out sbyte factor))
+            {
+                return factor;
+            }
         }
-        return (0, 0);
-    }
-
-    public short GetRemainingDistance()
-    {
-        string response = GetRequest(5, DRIVE_DISPATCHER, "2");
-        if (response.Length >= 9)
+        else if (driveCalibrationsBackward.TryGetValue(deviceId, out sbyte factor))
         {
-            return short.Parse(response.Substring(5, 4), System.Globalization.NumberStyles.HexNumber);
+            return factor;
         }
         return 0;
     }
 
-    public (short leftSpeed, short rightSpeed) GetEncoderSpeed()
+    public Drive(ICom com) : base(com, 0x24)
     {
-        string response = GetRequest(5, ENCODER_DISPATCHER, "0");
-        if (response.Length >= 13)
+        string deviceId = System.Net.Dns.GetHostName();
+        if (turnCalibrations.TryGetValue(deviceId, out short factor))
         {
-            short left = short.Parse(response.Substring(5, 4), System.Globalization.NumberStyles.HexNumber);
-            short right = short.Parse(response.Substring(9, 4), System.Globalization.NumberStyles.HexNumber);
-            return (left, right);
+            TurnCalib(factor);
         }
-        return (0, 0);
-    }
-
-    public (short leftDistance, short rightDistance) GetEncoderDistance()
-    {
-        string response = GetRequest(5, ENCODER_DISPATCHER, "1");
-        Console.WriteLine($"Encoder Distance Response: {response}");
-        if (response.Length >= 13)
+        else
         {
-            short left = short.Parse(response.Substring(5, 4), System.Globalization.NumberStyles.HexNumber);
-            short right = short.Parse(response.Substring(9, 4), System.Globalization.NumberStyles.HexNumber);
-            return (left, right);
+            TurnCalib(115);
         }
-        return (0, 0);
     }
 
-    public bool ResetEncoderDistance()
+    /// <summary>
+    /// Fährt eine Strecke gerade aus
+    /// </summary>
+    /// <param name="length">die zu fahrende Strecke in mm (negativer Wert => rückwärts)</param>
+    /// <param name="speed"></param>
+    /// <param name="acceleration"></param>
+    /// <param name="offset">Korrekturfaktor in 0.1mm/s</param>
+    public void Track(short length, ushort speed, ushort acceleration, sbyte offset = 0)
     {
-        string response = SetRequest(5, ENCODER_DISPATCHER, "0");
-        return !string.IsNullOrEmpty(response);
+        string msg = SetRequest($"C{length:X4}{speed:X4}{acceleration:X4}{offset:X2}");
     }
 
-    public bool SetEncoderDistanceFactor(short calibrationFactor)
+    /// <summary>
+    /// Fährt eine Strecke gerade aus und wartet bis der Befehl fertig ist
+    /// </summary>
+    /// <param name="length">die zu fahrende Strecke in mm (negativer Wert => rückwärts)</param>
+    /// <param name="speed"></param>
+    /// <param name="acceleration"></param>
+    /// <param name="offset">Korrekturfaktor in 0.1mm/s</param>
+    public async Task TrackAsync(short length, ushort speed, ushort acceleration, sbyte offset = 0)
     {
-        string response = SetRequest(5, ENCODER_DISPATCHER, $"1{calibrationFactor:X4}");
-        return !string.IsNullOrEmpty(response);
+        Track(length, speed, acceleration, offset);
+        await WaitForFinished();
     }
 
-    public void Stop()
+    /// <summary>
+    /// Fährt eine Strecke gerade aus
+    /// </summary>
+    /// <param name="length">die zu fahrende Strecke in mm (negativer Wert => rückwärts)</param>
+    /// <param name="speed"></param>
+    /// <param name="acceleration"></param>
+    public void Track(short length, ushort speed, ushort acceleration)
     {
-        ConstantSpeed(0, 0);
+        sbyte offset = getDriveCorrection(length >= 0);
+        Track(length, speed, acceleration, offset);
+    }
+
+    /// <summary>
+    /// Fährt eine Strecke gerade aus und wartet bis der Befehl fertig ist
+    /// </summary>
+    /// <param name="length">die zu fahrende Strecke in mm (negativer Wert => rückwärts)</param>
+    /// <param name="speed"></param>
+    /// <param name="acceleration"></param>
+    public async Task TrackAsync(short length, ushort speed, ushort acceleration)
+    {
+        Track(length, speed, acceleration);
+        await WaitForFinished();
+    }
+
+    /// <summary>
+    ///  Dreht an Ort und Stelle
+    /// </summary>
+    /// <param name="angle"></param>
+    /// <param name="speed"></param>
+    /// <param name="acceleration"></param>
+    public void Turn(short angle, ushort speed, ushort acceleration)
+    {
+        string msg = SetRequest($"A{angle:X4}{speed:X4}{acceleration:X4}");
+    }
+
+    /// <summary>
+    ///  Dreht an Ort und Stelle und wartet bis der Befehl fertig ist
+    /// </summary>
+    /// <param name="angle"></param>
+    /// <param name="speed"></param>
+    /// <param name="acceleration"></param>
+    public async Task TurnAsync(short angle, ushort speed, ushort acceleration)
+    {
+        Turn(angle, speed, acceleration);
+        await WaitForFinished();
+    }
+
+    /// <summary>
+    ///  Dreht an Ort und Stelle
+    /// </summary>
+    /// <param name="angle"></param>
+    /// <param name="speed"></param>
+    /// <param name="acceleration"></param>
+    /// <param name="factor">Korrekturfaktor Istwinkel zu Sollwinkel</param>
+    public void Turn(short angle, ushort speed, ushort acceleration, short factor)
+    {
+        string msg = SetRequest($"B{factor:X4}");
+        msg = SetRequest($"A{angle:X4}{speed:X4}{acceleration:X4}");
+    }
+
+
+    /// <summary>
+    /// Dreht an Ort und Stelle und wartet bis der Befehl fertig ist
+    /// </summary>
+    /// <param name="angle"></param>
+    /// <param name="speed"></param>
+    /// <param name="acceleration"></param>
+    /// <param name="factor">Korrekturfaktor Istwinkel zu Sollwinkel</param>
+    public async Task TurnAsync(short angle, ushort speed, ushort acceleration, short factor)
+    {
+        Turn(angle, speed, acceleration, factor);
+        await WaitForFinished();
+    }
+
+    /// <summary>
+    /// Setzt den Korrekturfaktor für den Fahrbefehl "An Ort drehen".
+    /// 100 entspricht 1.00,
+    /// 115 entspricht beispielweise einem Korrekturfaktor von 1.15 (Istwinkel zu Sollwinkel)
+    /// </summary>
+    /// <param name="factor">Korrekturfaktor Istwinkel zu Sollwinkel</param>
+    public void TurnCalib(short factor)
+    {
+        string msg = SetRequest($"B{factor:X4}");
+    }
+
+    /// <summary>
+    /// Liefert die restliche Distanz zurück, bis der Zumo anhält (Fahrbefehl fertig ist)
+    /// </summary>
+    /// <returns>Die Distanz in mm</returns>
+    public int GetRemainingDistance()
+    {
+        string msg = GetRequest("2");
+        int dist = int.Parse(msg.Substring(4), NumberStyles.HexNumber);
+        return dist;
+    }
+
+    /// <summary>
+    /// Liefert True zurück, solange ein Fahrbefehl ausgeführt wird
+    /// </summary>
+    /// <returns>true solange der Zumo fährt</returns>
+    public bool IsRunning()
+    {
+        string msg = GetRequest("7");
+        bool running = byte.Parse(msg.Substring(4), NumberStyles.HexNumber) == 1;
+        return running;
+    }
+
+    protected override bool ProcessEvent(string message)
+    {
+        if (message == "5!24FF")
+        {
+            Finished?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+        return false;
+    }
+
+    private async Task WaitForFinished()
+    {
+        TaskCompletionSource<bool> tcs = new();
+        void handler(object? s, EventArgs e) => tcs.TrySetResult(true);
+        Finished += handler;
+        await tcs.Task;
+        Finished -= handler;
     }
 }

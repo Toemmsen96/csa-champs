@@ -1,120 +1,154 @@
-﻿using Testat_1.Util;
+﻿using System.Dynamic;
+using System.Runtime.CompilerServices;
+using Util;
 using ZumoLib;
 
 namespace Testat_1;
 
 class Program
 {
-    const int ANGLE_THRESHOLD = 50;
-    const int WALL_LENGTH_THRESHOLD = 10;
+    /* Board
+    #|# # # # #|#
+    #|#|# # #|#|#
+    #|#|# #_#|#|#
+    #|#|#|S|#|#|#
+    #|#|#_#_#|#|#
+    #|#|# # #|#|#
+    #|# # # # #|#
+     */
 
-    static void Main(string[] args)
+
+    private const int CellSizeMm = 200;
+
+    // Drive profile
+    private const ushort TrackSpeed = 240;
+    private const ushort TrackAcceleration = 220;
+    private const ushort TurnSpeed = 200;
+    private const ushort TurnAcceleration = 200;
+
+    private Direction heading = Direction.Up;
+
+    static async Task Main(string[] args)
     {
 #if DEBUG
-        // Debugger.WaitForDebugger();
+        Debugger.WaitForDebugger();
 #endif
+        Program program = new();
+        await program.RunAsync();
+    }
 
-        var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (sender, e) =>
-        {
-            e.Cancel = true; // Prevent immediate termination
-            cts.Cancel();
-        };
-        //TestLEDs();
-
+    private async Task RunAsync()
+    {
         Zumo.Instance.Lidar.SetPower(true);
-        // RTTTL rtttl = new RTTTL(Zumo.Instance.Sound);
-        // new Thread(() => rtttl.PlaySong(RtttlSong.FinalCountdown)) { IsBackground = true }.Start();
-        CalibrateColorSensor();
+        await Task.Delay(500);
+
         try
         {
-            while (!cts.Token.IsCancellationRequested)
+            while (Map.GetCurrentNode().NodeLevel > 0)
             {
-                LeftAlign(cts.Token);
-                Console.WriteLine("Color Sensor Reading: " + ColorSensor.RGBToReadable(Zumo.Instance.ColorSensor.ReadColorRGB()));
-                //Thread.Sleep(1000);
-            }
-        }
-        finally
-        {
-            Zumo.Instance.Lidar.SetPower(false);
-            Zumo.Instance.Drive.Stop();
-            //Zumo.Instance.RgbLedFront.SetValue(0xFF,0, 0, 0);
-        }
-    }
-
-    private static void CalibrateColorSensor()
-    {
-        Console.WriteLine("Calibrating Color Sensor...");
-        Console.WriteLine("Place the sensor on a white surface and press Enter.");
-        Console.ReadLine();
-        string whiteCalibrated = Zumo.Instance.ColorSensor.Calibrate(ColorSensor.CalibrationColor.White);
-        Console.WriteLine("White Calibration: " + whiteCalibrated );
-
-        Console.WriteLine("Place the sensor on a black surface and press Enter.");
-        Console.ReadLine();
-        string blackCalibrated = Zumo.Instance.ColorSensor.Calibrate(ColorSensor.CalibrationColor.Black);
-        Console.WriteLine("Black Calibration: " + blackCalibrated );
-        Console.WriteLine("Calibration complete. White: " + whiteCalibrated + ", Black: " + blackCalibrated);
-    }
-
-    private static void TestLEDs(){
-        foreach (var led in LedFront.GetValues<LedFront>())
-        {
-            Console.WriteLine($"Testing LED: {led.GetType().Name} {led}");
-            Zumo.Instance.RgbLedFront.SetValue(led, 255, 0, 0);
-            Console.ReadLine();
-            Zumo.Instance.RgbLedFront.SetValue(led, 0, 255, 0);
-            Console.ReadLine();
-            Zumo.Instance.RgbLedFront.SetValue(led, 0, 0, 255);
-            Console.ReadLine();
-            Console.WriteLine($"LED {led.GetType().Name} {led} test complete.");
-            Zumo.Instance.RgbLedFront.SetValue(led, 0, 0, 0);
-        }
-    }
-
-    private static void LeftAlign(CancellationToken token)
-    {
-        int correctionlessCycles = 0;
-        while (!token.IsCancellationRequested && correctionlessCycles < 3)
-        {
-            Thread.Sleep(1000);
-            var walls = LidarProcessing.GetWalls();
-
-            var leftWall = walls
-                .Where(w => GetAngularSpan(w) >= WALL_LENGTH_THRESHOLD)
-                .FirstOrDefault(w =>
+                UpdateNeighboringNodes();
+                if (TryGetExit(out Direction? exitDirection) && IsAllowedToLeave())
                 {
-                    double normalizedAngle = NormalizeAngle(w.Angle);
-                    return Math.Abs(275 - normalizedAngle) <= ANGLE_THRESHOLD;
-                });
+                    await Move(exitDirection!.Value);
+                    Map.ShiftCurrentPosition(exitDirection!.Value);
+                    continue;
+                }
 
-            if (leftWall == null)
-            {
-                continue;
+                Direction moveDirection = GetMoveOnLayer();
+                await Move(moveDirection);
+                Map.ShiftCurrentPosition(moveDirection);
             }
 
-            var correctionAngle = leftWall.Angle + 90;
-            if (Math.Abs(correctionAngle) < 2)
-            {
-                correctionlessCycles++;
-                continue;
-            }
-
-            Console.WriteLine("Correction Angle: " + correctionAngle);
-            Zumo.Instance.Drive.Rotate((short)correctionAngle, 50, 100);
+            Zumo.Instance.Sound.PlaySound(SoundItem.SuperMario);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.WriteLine($"Failed to move on a cell: {ex.Message}");
+            throw;
         }
     }
 
-    private static double NormalizeAngle(double angle)
+    private Direction GetMoveOnLayer()
     {
-        return (angle + 360.0) % 360.0;
+        int currentLevel = Map.GetCurrentNode().NodeLevel;
+
+        Direction[] movementPriorities = [heading, (Direction)(((int)heading) + 90), (Direction)(((int)heading) + 270), (Direction)(((int)heading) + 180)];
+        foreach (Direction direction in movementPriorities)
+        {
+            if (Map.GetCurrentNode().TryGetNeighbor(direction, out Node? neighbor) && neighbor!.NodeLevel == currentLevel)
+            {
+                return direction;
+            }
+        }
+
+        throw new InvalidOperationException("No valid move found on the current layer.");
     }
 
-    private static double GetAngularSpan(Wall wall)
+    private bool IsAllowedToLeave()
     {
-        double start = NormalizeAngle(wall.Start.Angle);
-        double end = NormalizeAngle(wall.End.Angle);
-        return NormalizeAngle(end - start);
+        // TODO: implement color check
+        return true;
+    }
+
+    private bool TryGetExit(out Direction? moveDirection)
+    {
+        int currentLevel = Map.GetCurrentNode().NodeLevel;
+
+        foreach (Direction direction in Enum.GetValues<Direction>())
+        {
+            if (Map.GetCurrentNode().TryGetNeighbor(direction, out Node? neighbor) && neighbor!.NodeLevel < currentLevel)
+            {
+                moveDirection = direction;
+                return true;
+            }
+        }
+
+        moveDirection = null;
+        return false;
+    }
+
+    private void UpdateNeighboringNodes()
+    {
+        Node currentNode = Map.GetCurrentNode();
+
+        foreach (Direction direction in Enum.GetValues<Direction>())
+        {
+            int distance = Zumo.Instance.Lidar[GetOrientationAwareAngle(direction)].Distance;
+            bool hasWall = distance != 0 && distance < CellSizeMm;
+            if (hasWall)
+            {
+                continue;
+            }
+
+            (int x, int y) = Map.GetPositionOffset(currentNode.X, currentNode.Y, direction);
+            Node neighbor = Map.GetOrCreateNode(x, y);
+            currentNode.SetNeighbor(direction, neighbor);
+        }
+    }
+
+    private int GetOrientationAwareAngle(Direction direction)
+    {
+        return ((int)direction + (int)heading) % 360;
+    }
+
+    private async Task Move(Direction direction)
+    {
+        int angle = ((int)direction - (int)heading + 360) % 360;
+        if (angle == 90)
+        {
+            await Zumo.Instance.Drive.TurnAsync(90, TurnSpeed, TurnAcceleration);
+        }
+        else if (angle == 270)
+        {
+            await Zumo.Instance.Drive.TurnAsync(-90, TurnSpeed, TurnAcceleration);
+        }
+        else if (angle == 180)
+        {
+            await Zumo.Instance.Drive.TurnAsync(180, TurnSpeed, TurnAcceleration);
+        }
+
+        // TODO: keep checking for obstacles while driving and stop if an obstacle is detected within the safety distance
+        await Zumo.Instance.Drive.TrackAsync(CellSizeMm, TrackSpeed, TrackAcceleration);
+        heading = direction;
     }
 }

@@ -1,3 +1,5 @@
+namespace Util;
+
 public class Debugger
 {
     public static void WaitForDebugger()
