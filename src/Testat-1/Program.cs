@@ -31,7 +31,7 @@ class Program
 
         try
         {
-            while (Map.GetCurrentNode().NodeLevel > 0)
+            while (Map.GetCurrentNode().NodeLevel < 3)
             {
                 UpdateNeighboringNodes();
                 if (TryGetExit(out Direction? exitDirection) && IsAllowedToLeave())
@@ -83,7 +83,7 @@ class Program
 
         foreach (Direction direction in Enum.GetValues<Direction>())
         {
-            if (Map.GetCurrentNode().TryGetNeighbor(direction, out Node? neighbor) && neighbor!.NodeLevel < currentLevel)
+            if (Map.GetCurrentNode().TryGetNeighbor(direction, out Node? neighbor) && neighbor!.NodeLevel > currentLevel)
             {
                 moveDirection = direction;
                 return true;
