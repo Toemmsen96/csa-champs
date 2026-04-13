@@ -6,7 +6,7 @@ namespace Testat_1;
 
 class Program
 {
-    private const int CellSizeMm = 220;
+    private const int CellSizeMm = 210;
     private const int SecurePerimeterMm = 80;
 
     // Drive profile
@@ -122,7 +122,7 @@ class Program
             double correction = LidarTools.GetAlignmentCorrection();
             if (Math.Abs(correction) > 3)
             {
-                await Zumo.Instance.Drive.TurnAsync((short)-correction, TurnSpeed, TurnAcceleration);
+                await Zumo.Instance.Drive.TurnAsync((short)correction, TurnSpeed, TurnAcceleration);
             }
         }
         catch (InvalidDataException ex)
@@ -135,7 +135,12 @@ class Program
     {
         int currentLevel = Map.GetCurrentNode().NodeLevel;
 
-        Direction[] movementPriorities = [heading, (Direction)(((int)heading) + 90), (Direction)(((int)heading) + 270), (Direction)(((int)heading) + 180)];
+        Direction[] movementPriorities = [
+            heading, 
+            (Direction)((((int)heading) + 90) % 360), 
+            (Direction)((((int)heading) + 270) % 360), 
+            (Direction)((((int)heading) + 180) % 360)
+        ];
         foreach (Direction direction in movementPriorities)
         {
             if (Map.GetCurrentNode().TryGetNeighbor(direction, out Node? neighbor) && neighbor!.NodeLevel == currentLevel)
@@ -183,38 +188,42 @@ class Program
         await StopPartyModeAsync();
         await Task.Delay(100); // Give the LEDs a moment to turn completely off
 
-        string rgb = Zumo.Instance.ColorSensor.ReadColorRGB();
+        bool canLeave = false;
+        Console.WriteLine($"Checking Node Level: {node.NodeLevel}");
+
+        for (int i = 0; i < 5; i++)
+        {
+            string rgb = Zumo.Instance.ColorSensor.ReadColorRGB();
+            Console.WriteLine($"Scan {i + 1} - Detected Color RGB: {rgb}");
+
+            if (rgb != "Invalid" && !string.IsNullOrWhiteSpace(rgb) && rgb.Length >= 7)
+            {
+                int red = Convert.ToInt32(rgb.Substring(1, 2), 16);
+                int green = Convert.ToInt32(rgb.Substring(3, 2), 16);
+                int blue = Convert.ToInt32(rgb.Substring(5, 2), 16);
+                
+                if (red >= 200 && green < 150 && blue < 150)
+                {
+                    Zumo.Instance.Sound.PlaySound(4000, 500);
+                    Zumo.Instance.RgbLedRearLeft.SetValue(255, 0, 0);
+                    Zumo.Instance.RgbLedRearRight.SetValue(255, 0, 0);
+                    canLeave = true;
+                    break;
+                }
+                else if (red < 150 && green >= 200 && blue < 150)
+                {
+                    Zumo.Instance.Sound.PlaySound(4000, 500);
+                    Zumo.Instance.RgbLedRearLeft.SetValue(0, 255, 0);
+                    Zumo.Instance.RgbLedRearRight.SetValue(0, 255, 0);
+                    canLeave = true;
+                    break;
+                }
+            }
+            await Task.Delay(100); // Wait a bit before the next scan
+        }
 
         StartPartyMode();
-
-        Console.WriteLine($"Current Node Level: {node.NodeLevel}, Detected Color RGB: {rgb}");
-
-        if (rgb == "Invalid" || string.IsNullOrWhiteSpace(rgb) || rgb.Length < 7)
-        {
-            return false;
-        }
-
-        int red = Convert.ToInt32(rgb.Substring(1, 2), 16);
-        int green = Convert.ToInt32(rgb.Substring(3, 2), 16);
-        int blue = Convert.ToInt32(rgb.Substring(5, 2), 16);
-        if (red >= 200 && green < 100 && blue < 100)
-        {
-            Zumo.Instance.Sound.PlaySound(4000, 500);
-            Zumo.Instance.RgbLedRearLeft.SetValue(255, 0, 0);
-            Zumo.Instance.RgbLedRearRight.SetValue(255, 0, 0);
-            return true;
-        }
-        else if (red < 100 && green >= 200 && blue < 100)
-        {
-            Zumo.Instance.Sound.PlaySound(4000, 500);
-            Zumo.Instance.RgbLedRearLeft.SetValue(0, 255, 0);
-            Zumo.Instance.RgbLedRearRight.SetValue(0, 255, 0);
-            return true;
-        }
-        else
-        {
-            return false;
-        }
+        return canLeave;
     }
 
     private bool TryGetExit(out Direction? moveDirection)
@@ -284,11 +293,11 @@ class Program
         }
 
 
-        if (angle != 0)
+        if (!Args.NoAlign && angle != 0)
         {
             try
             {
-                TryAlignWithWall();
+                await TryAlignWithWall();
             }
             catch (System.Exception)
             {
