@@ -7,6 +7,7 @@ namespace Testat_1;
 class Program
 {
     private const int CellSizeMm = 200;
+    private const int SecurePerimeterMm = 90;
 
     // Drive profile
     private const ushort TrackSpeed = 240;
@@ -109,7 +110,7 @@ class Program
         throw new InvalidOperationException("No valid move found on the current layer.");
     }
 
-     private void Calibrate()
+    private void Calibrate()
     {
         Console.WriteLine("Starting calibration...");
         Console.WriteLine("Please place the robot on white surface and press the CM4 button.");
@@ -126,7 +127,8 @@ class Program
         Zumo.Instance.ColorSensor.Calibrate(ColorSensor.CalibrationColor.Black);
         Console.WriteLine("Calibration completed.");
         Console.WriteLine("Press the CM4 button to start the robot.");
-        while (Zumo.Instance.Cm4Button.Pressed){
+        while (Zumo.Instance.Cm4Button.Pressed)
+        {
             Thread.Sleep(100);
         }
     }
@@ -243,8 +245,30 @@ class Program
             await Zumo.Instance.Drive.TurnAsync(180, TurnSpeed, TurnAcceleration);
         }
 
-        // TODO: keep checking for obstacles while driving and stop if an obstacle is detected within the safety distance
-        await Zumo.Instance.Drive.TrackAsync(CellSizeMm, TrackSpeed, TrackAcceleration);
+        DriveCellSecure();
         heading = direction;
+    }
+
+    private void DriveCellSecure()
+    {
+        var task = Zumo.Instance.Drive.TrackAsync(CellSizeMm, TrackSpeed, TrackAcceleration);
+        while (!task.IsCompleted)
+        {
+            var isTooClose = Enumerable
+                .Range(-35, 70)
+                .Select(offset => (360 + offset) % 360)
+                .Any(angle =>
+                {
+                    int distance = Zumo.Instance.Lidar[angle].Distance;
+                    return distance != 0 && distance < SecurePerimeterMm;
+                });
+
+            if (isTooClose)
+            {
+                Zumo.Instance.Drive.Track(0, 0, 100);
+                throw new InvalidOperationException("Obstacle detected within secure perimeter while driving.");
+            }
+            Thread.Sleep(100);
+        }
     }
 }

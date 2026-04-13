@@ -8,7 +8,7 @@ if [[ "$OS" == "Linux" ]]; then
     rsync -avz --delete "$1" "pi@eee-05548.simple.eee.intern:netcore/$2/"
 elif [[ "$OS" == "Darwin" ]]; then
     rsync -avz --delete "$1" "csa-3:netcore/$2";
-    rsync -avz --delete "$1" "csa-5:netcore/$2";
+    # rsync -avz --delete "$1" "csa-5:netcore/$2";
     # rsync -avz --delete "$1" "csa-5-home:netcore/$2";
 
     echo "✅ Uploaded current build";
