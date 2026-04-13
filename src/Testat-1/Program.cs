@@ -17,7 +17,7 @@ class Program
 
     static async Task Main(string[] args)
     {
-        new Task(() => Zumo.Instance.RTTTL.PlaySong(RtttlSong.AxelF)).Start();
+        //new Task(() => Zumo.Instance.RTTTL.PlaySong(RtttlSong.AxelF)).Start();
 #if DEBUG
         Debugger.WaitForDebugger();
 #endif
@@ -28,7 +28,6 @@ class Program
 
     private async Task RunAsync()
     {
-        Zumo.Instance.RTTTL.PlayRtttlOnce("Sandstor:d=16,o=5,b=112:d6,d6,d6,d6,8d6,d6,d6,d6,d6,d6,d6,8d6,g6,g6,g6,g6,g6,g6,g6,g6,f6,f6,f6,f6,f6,f6,8f6,c6,c6,d6,d6,d6,d6,8d6,d6,d6,d6,d6,d6,d6,d6,d6,f6,f6,d6,d6,d6,d6,d6");
         Zumo.Instance.Lidar.SetPower(true);
         Calibrate();
         await Task.Delay(1000);
@@ -78,27 +77,23 @@ class Program
      private void Calibrate()
     {
         Console.WriteLine("Starting calibration...");
-        Console.WriteLine("Please place the robot on white surface and press the CM4 button or Enter in the console.");
-        while (!Zumo.Instance.Cm4Button.Pressed)
+        Console.WriteLine("Please place the robot on white surface and press the CM4 button.");
+        while (Zumo.Instance.Cm4Button.Pressed)
         {
-            if (Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Enter)
-            {
-                break;
-            }
             Thread.Sleep(100);
         }
         Zumo.Instance.ColorSensor.Calibrate(ColorSensor.CalibrationColor.White);
-        Console.WriteLine("White calibrated. Please place the robot on black surface and press the CM4 button or Enter in the console.");
-        while (!Zumo.Instance.Cm4Button.Pressed)
+        Console.WriteLine("White calibrated. Please place the robot on black surface and press the CM4 button.");
+        while (Zumo.Instance.Cm4Button.Pressed)
         {
-            if (Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Enter)
-            {
-                break;
-            }
             Thread.Sleep(100);
         }
         Zumo.Instance.ColorSensor.Calibrate(ColorSensor.CalibrationColor.Black);
         Console.WriteLine("Calibration completed.");
+        Console.WriteLine("Press the CM4 button to start the robot.");
+        while (Zumo.Instance.Cm4Button.Pressed){
+            Thread.Sleep(100);
+        }
     }
 
     private bool IsAllowedToLeave()
@@ -106,14 +101,26 @@ class Program
         Node node = Map.GetCurrentNode();
         string rgb = Zumo.Instance.ColorSensor.ReadColorRGB();
         Console.WriteLine($"Current Node Level: {node.NodeLevel}, Detected Color RGB: {rgb}");
+
+        if (node.NodeLevel == 0)
+        {
+            Console.WriteLine("At starting node, allowing to leave regardless of color.");
+            return true; // Always allow leaving the starting node
+        }
+
+        if (rgb == "Invalid" || string.IsNullOrWhiteSpace(rgb) || rgb.Length < 7)
+        {
+            return false;
+        }
+
         int red = Convert.ToInt32(rgb.Substring(1, 2), 16);
         int green = Convert.ToInt32(rgb.Substring(3, 2), 16);
         int blue = Convert.ToInt32(rgb.Substring(5, 2), 16);
-        if (red >= 200 && green < 100 && blue < 100 && node.NodeLevel == 0)
+        if (red >= 200 && green < 100 && blue < 100)
         {
             return true;
         }
-        else if (red < 100 && green >= 200 && blue < 100 && node.NodeLevel == 1)
+        else if (red < 100 && green >= 200 && blue < 100)
         {
             return true;
         }
