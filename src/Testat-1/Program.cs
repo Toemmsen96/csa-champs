@@ -7,7 +7,7 @@ namespace Testat_1;
 class Program
 {
     private const int CellSizeMm = 220;
-    private const int SecurePerimeterMm = 130;
+    private const int SecurePerimeterMm = 80;
 
     // Drive profile
     private const ushort TrackSpeed = 200;
@@ -18,6 +18,7 @@ class Program
     private Direction heading = Direction.Up;
     private CancellationTokenSource? _partyModeCts;
     private Task? _partyModeTask;
+    private readonly LidarDisplay _lidarDisplay = new LidarDisplay();
 
     static async Task Main(string[] args)
     {
@@ -80,6 +81,7 @@ class Program
         await Task.Delay(1000);
 
         StartPartyMode();
+        _lidarDisplay.StartLidarDisplay();
 
         try
         {
@@ -101,11 +103,13 @@ class Program
             }
 
             await StopPartyModeAsync();
+            await _lidarDisplay.StopLidarDisplayAsync();
             Zumo.Instance.Sound.PlaySound(SoundItem.SuperMario);
         }
         catch (InvalidOperationException ex)
         {
             await StopPartyModeAsync();
+            await _lidarDisplay.StopLidarDisplayAsync();
             Console.WriteLine($"Failed to move on a cell: {ex.Message}");
             throw;
         }
