@@ -23,12 +23,18 @@ class Program
     {
         Args.Parse(args);
         //new Task(() => Zumo.Instance.RTTTL.PlaySong(RtttlSong.AxelF)).Start();
+        Console.CancelKeyPress += (sender, eventArgs) =>
+        {
+            Zumo.Instance.Lidar.SetPower(false);
+            Zumo.Instance.Drive.Track(0, 0, 100);
+        };
+
 #if DEBUG
         Debugger.WaitForDebugger();
 #endif
         Program program = new();
         await program.RunAsync();
-        //Zumo.Instance.Drive.Turn(360,70,70);
+        Zumo.Instance.Lidar.SetPower(false);
     }
 
     private void StartPartyMode()
@@ -145,9 +151,9 @@ class Program
 
         await StopPartyModeAsync();
         await Task.Delay(100); // Give the LEDs a moment to turn completely off
-        
+
         string rgb = Zumo.Instance.ColorSensor.ReadColorRGB();
-        
+
         StartPartyMode();
 
         Console.WriteLine($"Current Node Level: {node.NodeLevel}, Detected Color RGB: {rgb}");
