@@ -9,14 +9,15 @@ class Program
 
     // Drive profile
     private const ushort TrackSpeed = 240;
-    private const ushort TrackAcceleration = 220;
+    private const ushort TrackAcceleration = 500;
     private const ushort TurnSpeed = 200;
-    private const ushort TurnAcceleration = 200;
+    private const ushort TurnAcceleration = 500;
 
     private Direction heading = Direction.Up;
 
     static async Task Main(string[] args)
     {
+        new Task(() => Zumo.Instance.RTTTL.PlaySong(RtttlSong.AxelF)).Start();
 #if DEBUG
         Debugger.WaitForDebugger();
 #endif
@@ -29,7 +30,7 @@ class Program
     private async Task RunAsync()
     {
         Zumo.Instance.Lidar.SetPower(true);
-        await Task.Delay(500);
+        await Task.Delay(1000);
 
         try
         {
@@ -102,9 +103,17 @@ class Program
 
         foreach (Direction direction in Enum.GetValues<Direction>())
         {
-            int distance = Zumo.Instance.Lidar[GetOrientationAwareAngle(direction)].Distance;
-            bool hasWall = distance != 0 && distance < CellSizeMm;
-            if (hasWall)
+            int baseAngle = GetOrientationAwareAngle(direction);
+            bool hasWallInDirection = Enumerable
+                .Range(-5, 11)
+                .Select(offset => (baseAngle + offset + 360) % 360)
+                .Any(angle =>
+                {
+                    int distance = Zumo.Instance.Lidar[angle].Distance;
+                    return distance != 0 && distance < CellSizeMm;
+                });
+
+            if (hasWallInDirection)
             {
                 continue;
             }
@@ -117,7 +126,7 @@ class Program
 
     private int GetOrientationAwareAngle(Direction direction)
     {
-        return ((int)direction + (int)heading) % 360;
+        return ((int)direction - (int)heading) % 360;
     }
 
     private async Task Move(Direction direction)
