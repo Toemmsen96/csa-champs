@@ -76,8 +76,8 @@ class Program
 
     private bool IsAllowedToLeave()
     {
-        // TODO: implement color check
-        return true;
+        Node node = Map.GetCurrentNode();
+        return node.NodeLevel == 0 || false;
     }
 
     private bool TryGetExit(out Direction? moveDirection)
