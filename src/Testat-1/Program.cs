@@ -7,10 +7,10 @@ namespace Testat_1;
 class Program
 {
     private const int CellSizeMm = 200;
-    private const int SecurePerimeterMm = 90;
+    private const int SecurePerimeterMm = 120;
 
     // Drive profile
-    private const ushort TrackSpeed = 240;
+    private const ushort TrackSpeed = 200;
     private const ushort TrackAcceleration = 500;
     private const ushort TurnSpeed = 200;
     private const ushort TurnAcceleration = 500;
@@ -32,9 +32,16 @@ class Program
 #if DEBUG
         Debugger.WaitForDebugger();
 #endif
-        Program program = new();
-        await program.RunAsync();
-        Zumo.Instance.Lidar.SetPower(false);
+
+        try
+        {
+            Program program = new();
+            await program.RunAsync();
+        }
+        finally
+        {
+            Zumo.Instance.Lidar.SetPower(false);
+        }
     }
 
     private void StartPartyMode()
@@ -251,11 +258,18 @@ class Program
             await Zumo.Instance.Drive.TurnAsync(180, TurnSpeed, TurnAcceleration);
         }
 
-        DriveCellSecure();
+        try
+        {
+            await DriveCellSecure();
+        }
+        catch (InvalidOperationException)
+        {
+            await Zumo.Instance.Drive.TrackAsync(-30, 50, 100);
+        }
         heading = direction;
     }
 
-    private void DriveCellSecure()
+    private async Task DriveCellSecure()
     {
         var task = Zumo.Instance.Drive.TrackAsync(CellSizeMm, TrackSpeed, TrackAcceleration);
         while (!task.IsCompleted)
@@ -271,10 +285,10 @@ class Program
 
             if (isTooClose)
             {
-                Zumo.Instance.Drive.Track(0, 0, 100);
+                await Zumo.Instance.Drive.TrackAsync(0, 0, 0);
                 throw new InvalidOperationException("Obstacle detected within secure perimeter while driving.");
             }
-            Thread.Sleep(100);
+            await Task.Delay(10);
         }
     }
 }
