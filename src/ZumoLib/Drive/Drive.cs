@@ -15,18 +15,22 @@ public class Drive : ComDevice
     {
         { "eee-05500",  129 }, // ARO: CSA-3
         { "eee-05457",  125 }, // ARO: CSA-5
+        { "eee-05548",  128 }, // Toemmsen: CSA-13
     };
 
     private readonly Dictionary<string, sbyte> driveCalibrationsForward = new()
     {
         { "eee-05500",  0 }, // ARO: CSA-3
         { "eee-05457",  40 }, // ARO: CSA-5
+        { "eee-05548",  0 }, // Toemmsen: CSA-13
+
     };
 
     private readonly Dictionary<string, sbyte> driveCalibrationsBackward = new()
     {
         { "eee-05500",  0 }, // ARO: CSA-3
         { "eee-05457",  0 }, // ARO: CSA-5
+        { "eee-05548",  0 }, // Toemmsen: CSA-13
     };
 
     public event EventHandler Finished;

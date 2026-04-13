@@ -20,8 +20,10 @@ class Program
 #if DEBUG
         Debugger.WaitForDebugger();
 #endif
+        new Task(() => Zumo.Instance.RTTTL.PlaySong(RtttlSong.MissionImpossible)).Start();
         Program program = new();
         await program.RunAsync();
+        //Zumo.Instance.Drive.Turn(360,70,70);
     }
 
     private async Task RunAsync()

@@ -187,8 +187,8 @@ namespace ZumoLib
 
                 if (note.Frequency > 0)
                 {
-                    // Keep a short gap between notes for more natural RTTTL timing.
-                    var toneDurationMs = Math.Max(1, (int)(durationMs * 0.95));
+                    // Keep a short gap between notes for more natural RTTTL timing. Ensure short notes are at least 20ms.
+                    var toneDurationMs = Math.Max(20, (int)(durationMs * 0.95));
                     var frequency = (UInt16)Math.Clamp(note.Frequency, 20, UInt16.MaxValue);
                     var toneDuration = (UInt16)Math.Clamp(toneDurationMs, 0, UInt16.MaxValue);
 
@@ -208,8 +208,8 @@ namespace ZumoLib
                 }
                 else
                 {
-                    // For pauses, sleep for a shorter duration (e.g., 50% of note duration)
-                    var pauseDuration = (int)(durationMs * 0.5);
+                    // For pauses, sleep for the specified duration, ensuring it's at least a bit longer if it's too short
+                    var pauseDuration = Math.Max(20, durationMs);
                     var pauseMs = pauseDuration - (int)noteTimer.ElapsedMilliseconds;
                     if (pauseMs > 0)
                     {

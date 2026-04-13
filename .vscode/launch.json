@@ -20,6 +20,44 @@
                 "quoteArgs": true
             },
             "sourceFileMap": {
+                "/home/pi/netcore": "${workspaceRoot}"
+            }
+        },
+        {
+            "name": "Toemmsen: HS .NET Core SSH Attach",
+            "type": "coreclr",
+            "request": "attach",
+            "processName": "dotnet",
+            "pipeTransport": {
+                "pipeProgram": "ssh",
+                "pipeArgs": [
+                    "-T",
+                    "pi@csa"
+                ],
+                "debuggerPath": "~/vsdbg/vsdbg",
+                "pipeCwd": "${workspaceRoot}",
+                "quoteArgs": true
+            },
+            "sourceFileMap": {
+                "/home/pi/netcode": "${workspaceRoot}"
+            }
+        },
+        {
+            "name": "Toemmsen: EEE .NET Core SSH Attach",
+            "type": "coreclr",
+            "request": "attach",
+            "processName": "dotnet",
+            "pipeTransport": {
+                "pipeProgram": "ssh",
+                "pipeArgs": [
+                    "-T",
+                    "pi@eee-05548.simple.eee.intern"
+                ],
+                "debuggerPath": "~/vsdbg/vsdbg",
+                "pipeCwd": "${workspaceRoot}",
+                "quoteArgs": true
+            },
+            "sourceFileMap": {
                 "/home/pi/netcode": "${workspaceRoot}"
             }
         }
