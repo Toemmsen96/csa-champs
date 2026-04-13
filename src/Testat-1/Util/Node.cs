@@ -28,4 +28,9 @@ public class Node(int x, int y)
     {
         return (Direction)(((int)direction + 180) % 360);
     }
+
+    public override string ToString()
+    {
+        return $"Node: ({X}, {Y}), Node Level: {NodeLevel}, Neighbors: {string.Join(", ", Enum.GetValues<Direction>().Where(d => TryGetNeighbor(d, out _)))}";
+    }
 }

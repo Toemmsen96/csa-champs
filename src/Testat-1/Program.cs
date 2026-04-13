@@ -6,8 +6,8 @@ namespace Testat_1;
 
 class Program
 {
-    private const int CellSizeMm = 200;
-    private const int SecurePerimeterMm = 120;
+    private const int CellSizeMm = 220;
+    private const int SecurePerimeterMm = 130;
 
     // Drive profile
     private const ushort TrackSpeed = 200;
@@ -27,6 +27,8 @@ class Program
         {
             Zumo.Instance.Lidar.SetPower(false);
             Zumo.Instance.Drive.Track(0, 0, 100);
+
+            Environment.Exit(0);
         };
 
 #if DEBUG
@@ -83,7 +85,9 @@ class Program
         {
             while (Map.GetCurrentNode().NodeLevel < 3)
             {
+                Thread.Sleep(1000);
                 UpdateNeighboringNodes();
+                Console.WriteLine(Map.GetCurrentNode().ToString());
                 if (TryGetExit(out Direction? exitDirection) && await IsAllowedToLeaveAsync())
                 {
                     await Move(exitDirection!.Value);
@@ -104,6 +108,22 @@ class Program
             await StopPartyModeAsync();
             Console.WriteLine($"Failed to move on a cell: {ex.Message}");
             throw;
+        }
+    }
+
+    private async Task TryAlignWithWall()
+    {
+        try
+        {
+            double correction = LidarTools.GetAlignmentCorrection();
+            if (Math.Abs(correction) > 3)
+            {
+                await Zumo.Instance.Drive.TurnAsync((short)-correction, TurnSpeed, TurnAcceleration);
+            }
+        }
+        catch (InvalidDataException ex)
+        {
+            Console.WriteLine($"Alignment correction failed: {ex.Message}");
         }
     }
 
@@ -245,6 +265,7 @@ class Program
     private async Task Move(Direction direction)
     {
         int angle = ((int)direction - (int)heading + 360) % 360;
+
         if (angle == 90)
         {
             await Zumo.Instance.Drive.TurnAsync(90, TurnSpeed, TurnAcceleration);
@@ -256,6 +277,19 @@ class Program
         else if (angle == 180)
         {
             await Zumo.Instance.Drive.TurnAsync(180, TurnSpeed, TurnAcceleration);
+        }
+
+
+        if (angle != 0)
+        {
+            try
+            {
+                TryAlignWithWall();
+            }
+            catch (System.Exception)
+            {
+                Console.WriteLine("Alignment failed, but continuing with movement.");
+            }
         }
 
         try
