@@ -13,7 +13,7 @@
                 "pipeProgram": "ssh",
                 "pipeArgs": [
                     "-T",
-                    "csa-5-home"
+                    "csa-5"
                 ],
                 "debuggerPath": "~/vsdbg/vsdbg",
                 "pipeCwd": "${workspaceRoot}",
