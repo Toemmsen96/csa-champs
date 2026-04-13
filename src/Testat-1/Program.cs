@@ -1,4 +1,5 @@
-﻿using Util;
+﻿using NLog.Common;
+using Util;
 using ZumoLib;
 
 namespace Testat_1;
@@ -14,9 +15,12 @@ class Program
     private const ushort TurnAcceleration = 500;
 
     private Direction heading = Direction.Up;
+    private CancellationTokenSource? _partyModeCts;
+    private Task? _partyModeTask;
 
     static async Task Main(string[] args)
     {
+        Args.Parse(args);
         //new Task(() => Zumo.Instance.RTTTL.PlaySong(RtttlSong.AxelF)).Start();
 #if DEBUG
         Debugger.WaitForDebugger();
@@ -26,18 +30,47 @@ class Program
         //Zumo.Instance.Drive.Turn(360,70,70);
     }
 
+    private void StartPartyMode()
+    {
+        if (_partyModeCts == null)
+        {
+            _partyModeCts = new CancellationTokenSource();
+            _partyModeTask = Zumo.Instance.RgbLedFront.StartPartyModeAsync(_partyModeCts.Token, delayMs: 40);
+        }
+    }
+
+    private async Task StopPartyModeAsync()
+    {
+        if (_partyModeCts != null)
+        {
+            _partyModeCts.Cancel();
+            if (_partyModeTask != null)
+            {
+                await _partyModeTask;
+            }
+            _partyModeCts.Dispose();
+            _partyModeCts = null;
+            _partyModeTask = null;
+        }
+    }
+
     private async Task RunAsync()
     {
         Zumo.Instance.Lidar.SetPower(true);
-        Calibrate();
+        if (Args.Calibrate)
+        {
+            Calibrate();
+        }
         await Task.Delay(1000);
+
+        StartPartyMode();
 
         try
         {
             while (Map.GetCurrentNode().NodeLevel < 3)
             {
                 UpdateNeighboringNodes();
-                if (TryGetExit(out Direction? exitDirection) && IsAllowedToLeave())
+                if (TryGetExit(out Direction? exitDirection) && await IsAllowedToLeaveAsync())
                 {
                     await Move(exitDirection!.Value);
                     Map.ShiftCurrentPosition(exitDirection!.Value);
@@ -49,10 +82,12 @@ class Program
                 Map.ShiftCurrentPosition(moveDirection);
             }
 
+            await StopPartyModeAsync();
             Zumo.Instance.Sound.PlaySound(SoundItem.SuperMario);
         }
         catch (InvalidOperationException ex)
         {
+            await StopPartyModeAsync();
             Console.WriteLine($"Failed to move on a cell: {ex.Message}");
             throw;
         }
@@ -96,17 +131,24 @@ class Program
         }
     }
 
-    private bool IsAllowedToLeave()
+    private async Task<bool> IsAllowedToLeaveAsync()
     {
         Node node = Map.GetCurrentNode();
-        string rgb = Zumo.Instance.ColorSensor.ReadColorRGB();
-        Console.WriteLine($"Current Node Level: {node.NodeLevel}, Detected Color RGB: {rgb}");
 
         if (node.NodeLevel == 0)
         {
             Console.WriteLine("At starting node, allowing to leave regardless of color.");
             return true; // Always allow leaving the starting node
         }
+
+        await StopPartyModeAsync();
+        await Task.Delay(100); // Give the LEDs a moment to turn completely off
+        
+        string rgb = Zumo.Instance.ColorSensor.ReadColorRGB();
+        
+        StartPartyMode();
+
+        Console.WriteLine($"Current Node Level: {node.NodeLevel}, Detected Color RGB: {rgb}");
 
         if (rgb == "Invalid" || string.IsNullOrWhiteSpace(rgb) || rgb.Length < 7)
         {
@@ -118,10 +160,16 @@ class Program
         int blue = Convert.ToInt32(rgb.Substring(5, 2), 16);
         if (red >= 200 && green < 100 && blue < 100)
         {
+            Zumo.Instance.Sound.PlaySound(4000, 500);
+            Zumo.Instance.RgbLedRearLeft.SetValue(255, 0, 0);
+            Zumo.Instance.RgbLedRearRight.SetValue(255, 0, 0);
             return true;
         }
         else if (red < 100 && green >= 200 && blue < 100)
         {
+            Zumo.Instance.Sound.PlaySound(4000, 500);
+            Zumo.Instance.RgbLedRearLeft.SetValue(0, 255, 0);
+            Zumo.Instance.RgbLedRearRight.SetValue(0, 255, 0);
             return true;
         }
         else
